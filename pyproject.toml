@@ -1,0 +1,26 @@
+[project]
+name = "fuel-route-api"
+version = "0.1.0"
+description = "API that returns a US route plus the cost-optimal fuel stops along it."
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.1,<6.2",
+    "djangorestframework>=3.18,<3.19",
+    "requests>=2.32,<3",
+    "drf-spectacular>=0.28,<0.29",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

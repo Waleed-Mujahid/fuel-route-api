@@ -1,0 +1,113 @@
+{
+  "info": {
+    "name": "Fuel Route Optimizer",
+    "description": "POST a US start/finish, get back the driving route plus the cost-minimal sequence of fuel stops. See the repo README for the full design writeup.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/healthz/", "host": ["{{baseUrl}}"], "path": ["healthz", ""] }
+      }
+    },
+    {
+      "name": "Route: NYC -> LA (feasible, ~20 stops)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"New York, NY\",\n  \"finish\": \"Los Angeles, CA\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/route/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "route", ""] }
+      }
+    },
+    {
+      "name": "Route: Chicago -> Omaha (short, under range)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"finish\": \"Omaha, NE\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/route/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "route", ""] }
+      }
+    },
+    {
+      "name": "Route: direct lat,lng input (skips geocoding entirely)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"40.7128,-74.0060\",\n  \"finish\": \"34.0522,-118.2437\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/route/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "route", ""] }
+      }
+    },
+    {
+      "name": "Route: custom vehicle params",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Miami, FL\",\n  \"finish\": \"Seattle, WA\",\n  \"max_range_miles\": 350,\n  \"mpg\": 8,\n  \"corridor_miles\": 10\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/route/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "route", ""] }
+      }
+    },
+    {
+      "name": "Route: infeasible (max_range_miles too small -> 200, feasible: false)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"New York, NY\",\n  \"finish\": \"Los Angeles, CA\",\n  \"max_range_miles\": 10\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/route/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "route", ""] }
+      }
+    },
+    {
+      "name": "Route: unresolvable location (-> 400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Zzqxnotarealplace\",\n  \"finish\": \"Los Angeles, CA\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/route/", "host": ["{{baseUrl}}"], "path": ["api", "v1", "route", ""] }
+      }
+    },
+    {
+      "name": "Swagger UI",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/api/docs/", "host": ["{{baseUrl}}"], "path": ["api", "docs", ""] }
+      }
+    },
+    {
+      "name": "Map preview (NYC -> LA)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/map/?start=New+York%2C+NY&finish=Los+Angeles%2C+CA",
+          "host": ["{{baseUrl}}"],
+          "path": ["map", ""],
+          "query": [
+            { "key": "start", "value": "New York, NY" },
+            { "key": "finish", "value": "Los Angeles, CA" }
+          ]
+        }
+      }
+    }
+  ]
+}

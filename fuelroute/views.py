@@ -1,4 +1,5 @@
 from django.http import JsonResponse
+from django.shortcuts import render
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.request import Request
@@ -14,6 +15,20 @@ from fuelroute.services.trip import TripResult, plan_trip
 def healthz(request):
     """Liveness probe used by Docker/CI; touches no database or network."""
     return JsonResponse({'status': 'ok'})
+
+
+def map_view(request):
+    """Leaflet route preview page.
+
+    Renders a static shell; the page itself calls POST /api/v1/route/
+    client-side, so an optional ?start=&finish= only pre-fills and
+    auto-submits the form rather than the server planning anything.
+    """
+    context = {
+        'start': request.GET.get('start', ''),
+        'finish': request.GET.get('finish', ''),
+    }
+    return render(request, 'fuelroute/map.html', context)
 
 
 def _serialize_trip(result: TripResult) -> dict:

@@ -82,10 +82,15 @@ class RouteIndex:
         return (math.floor(lat / GRID_CELL_DEGREES), math.floor(lng / GRID_CELL_DEGREES))
 
     def nearest(self, lat: float, lng: float) -> RoutePoint | None:
-        """Return the route point nearest to (lat, lng), or None for an empty index."""
-        if not self._points:
-            return None
+        """Return the route point nearest to (lat, lng).
 
+        Only searches the 3x3 block of cells around (lat, lng), so a
+        point with no route samples anywhere nearby returns None rather
+        than paying for a brute-force scan. That's exactly the signal a
+        corridor search wants: the grid cell is ~17mi across, so an
+        empty 3x3 block means the nearest route point (if any) is well
+        outside any reasonable corridor width.
+        """
         cell_lat, cell_lng = self._cell_key(lat, lng)
         candidates = [
             point
@@ -93,10 +98,7 @@ class RouteIndex:
             for d_lng in (-1, 0, 1)
             for point in self._cells.get((cell_lat + d_lat, cell_lng + d_lng), [])
         ]
-        # A station far from every route point (empty 3x3 block) falls
-        # back to a brute-force scan; rare in practice since the corridor
-        # search discards distant candidates before they ever reach here.
         if not candidates:
-            candidates = self._points
+            return None
 
         return min(candidates, key=lambda p: haversine_miles(lat, lng, p.lat, p.lng))

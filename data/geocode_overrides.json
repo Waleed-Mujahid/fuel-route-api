@@ -1,0 +1,32 @@
+{
+  "BROOKPARK|OH": {
+    "lat": 41.4197915,
+    "lng": -81.8238184,
+    "source_query": "Brookpark, Ohio"
+  },
+  "ELIZABETHPORT|NJ": {
+    "lat": 40.6501031,
+    "lng": -74.1870888,
+    "source_query": "Elizabethport, Elizabeth, New Jersey"
+  },
+  "EVERGREEN|AL": {
+    "lat": 31.4334994,
+    "lng": -86.9569176,
+    "source_query": "Evergreen, Alabama"
+  },
+  "HENRICO|VA": {
+    "lat": 37.5131191,
+    "lng": -77.3465081,
+    "source_query": "Henrico, Virginia"
+  },
+  "PORT WENTWORTH|GA": {
+    "lat": 32.149092,
+    "lng": -81.1631681,
+    "source_query": "Port Wentworth, Georgia"
+  },
+  "UNIVERSITY PARK|IL": {
+    "lat": 41.4400344,
+    "lng": -87.683377,
+    "source_query": "University Park, Illinois"
+  }
+}

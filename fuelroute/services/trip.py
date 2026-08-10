@@ -14,7 +14,7 @@ from django.conf import settings
 from fuelroute.services.corridor import Candidate, find_candidates
 from fuelroute.services.geocoding import geocode
 from fuelroute.services.optimizer import InfeasibleRoute, Plan, plan_fuel_stops
-from fuelroute.services.routing import Route, get_route
+from fuelroute.services.routing import Route, get_cached_route
 
 
 @dataclass
@@ -49,13 +49,12 @@ def plan_trip(
         mpg = settings.VEHICLE_MPG
 
     started = time.monotonic()
-    api_calls = 0
 
     start_coords = geocode(start)
     finish_coords = geocode(finish)
 
-    route = get_route(start_coords, finish_coords)
-    api_calls += 1
+    route, was_cached = get_cached_route(start_coords, finish_coords)
+    api_calls = 0 if was_cached else 1
 
     candidates = find_candidates(route, corridor_miles=corridor_miles)
     stations = [(c.mile_marker, c.station.price_per_gallon) for c in candidates]

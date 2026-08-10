@@ -7,14 +7,21 @@ A single request with steps=true returns the route geometry, distance,
 duration and every step's highway ref in one round trip.
 """
 
+import hashlib
 from dataclasses import dataclass, field
 
 import requests
 from django.conf import settings
+from django.core.cache import cache
 
 from fuelroute.services.highways import parse_route_highways
 
 METERS_PER_MILE = 1609.344
+
+# Cache key precision for routes: 5 decimal degrees is ~1 metre, so this
+# only merges requests that are effectively the same two points, never
+# genuinely different ones.
+_COORD_CACHE_DECIMALS = 5
 
 
 class RoutingError(Exception):
@@ -84,3 +91,30 @@ class OSRMClient:
 def get_route(start: tuple[float, float], finish: tuple[float, float]) -> Route:
     """Fetch a route using the default OSRM client built from settings."""
     return OSRMClient().get_route(start, finish)
+
+
+def _route_cache_key(start: tuple[float, float], finish: tuple[float, float]) -> str:
+    d = _COORD_CACHE_DECIMALS
+    raw = f'{start[0]:.{d}f},{start[1]:.{d}f}->{finish[0]:.{d}f},{finish[1]:.{d}f}'
+    return f'osrm_route:{hashlib.sha1(raw.encode()).hexdigest()}'
+
+
+def get_cached_route(
+    start: tuple[float, float], finish: tuple[float, float]
+) -> tuple[Route, bool]:
+    """Fetch a route, caching it forever by rounded (start, finish) coordinates.
+
+    Returns (route, was_cached) so a caller can report whether this
+    request actually made a network call to the routing provider — the
+    same route between the same two points never needs asking OSRM
+    twice, and the "one call" figure the API reports should reflect
+    that honestly rather than always claiming 1.
+    """
+    key = _route_cache_key(start, finish)
+    cached = cache.get(key)
+    if cached is not None:
+        return cached, True
+
+    route = get_route(start, finish)
+    cache.set(key, route, timeout=None)
+    return route, False

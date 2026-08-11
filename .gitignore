@@ -6,3 +6,4 @@ db.sqlite3
 *.egg-info/
 .ruff_cache/
 .pytest_cache/
+docs/LOOM_SCRIPT.md

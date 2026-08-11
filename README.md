@@ -157,9 +157,10 @@ works with no outbound network beyond the OSM tile images themselves.
 | Nominatim geocode of `finish` | free-text input only | forever, per location string |
 | **OSRM directions** | once per **uncached** `(start, finish)` pair | forever, per coordinate pair (~1m precision) |
 
-Passing `"lat,lng"` directly for `start`/`finish` skips geocoding — and thus all network calls —
-entirely. A repeated trip between the same two points costs **zero** network calls on a warm
-cache; every response reports `api_calls` and `elapsed_ms` so this is visible, not just claimed.
+Passing `"lat,lng"` directly for `start`/`finish` skips geocoding — the Nominatim calls — entirely.
+An uncached pair still costs the one OSRM directions call (`api_calls: 1`); a repeated trip
+between the same two points, cached or not, costs **zero** network calls on a warm route cache.
+Every response reports `api_calls` and `elapsed_ms` so this is visible, not just claimed.
 
 ## Running it
 

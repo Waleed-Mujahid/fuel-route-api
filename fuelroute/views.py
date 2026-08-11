@@ -6,7 +6,11 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from fuelroute.serializers import RouteRequestSerializer, RouteResponseSerializer
+from fuelroute.serializers import (
+    ErrorResponseSerializer,
+    RouteRequestSerializer,
+    RouteResponseSerializer,
+)
 from fuelroute.services.geocoding import GeocodingError
 from fuelroute.services.routing import RoutingError
 from fuelroute.services.trip import TripResult, plan_trip
@@ -87,7 +91,11 @@ class RouteView(APIView):
 
     @extend_schema(
         request=RouteRequestSerializer,
-        responses=RouteResponseSerializer,
+        responses={
+            200: RouteResponseSerializer,
+            400: ErrorResponseSerializer,
+            502: ErrorResponseSerializer,
+        },
     )
     def post(self, request: Request) -> Response:
         params = RouteRequestSerializer(data=request.data)

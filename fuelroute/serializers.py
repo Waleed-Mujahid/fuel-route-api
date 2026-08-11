@@ -38,6 +38,10 @@ class RouteGeometrySerializer(serializers.Serializer):
     )
 
 
+class ErrorResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+
+
 class RouteResponseSerializer(serializers.Serializer):
     feasible = serializers.BooleanField()
     reason = serializers.CharField(required=False)

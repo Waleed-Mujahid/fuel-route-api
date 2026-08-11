@@ -46,10 +46,15 @@ def _discretized_reference(
     n_pos = int(round(distance / step)) + 1
     n_fuel = int(round(max_range / step)) + 1
 
-    price_at: dict[int, float] = {}
-    for i, (mile, price) in enumerate(ordered):
-        pos = 0.0 if i == 0 else mile
-        idx = int(round(pos / step))
+    # Mile 0 is a purchase point too, priced like the nearest station (the
+    # vehicle starts empty and buys "at the origin" -- see optimizer.py's
+    # docstring), *in addition to* that station's own true position, not
+    # instead of it. Registering only mile 0 (an earlier version of this
+    # function did that) hides exactly the bug it exists to catch: it
+    # never lets the DP refuel again at the real station's own location.
+    price_at: dict[int, float] = {0: ordered[0][1]}
+    for mile, price in ordered:
+        idx = int(round(mile / step))
         if idx not in price_at or price < price_at[idx]:
             price_at[idx] = price
 
@@ -142,6 +147,36 @@ class OptimizerExampleTests(SimpleTestCase):
         self.assertEqual(len(plan.stops), 2)
         self.assertAlmostEqual(plan.total_cost, 200.0, places=2)
         self.assertAlmostEqual(plan.total_gallons, 90.0, places=6)
+
+    def test_reachability_after_the_first_stop_uses_its_real_position(self):
+        """Regression: a real, previously-shipped bug, found by external review.
+
+        The nearest station to the start (mile 450) is itself well within
+        range of the origin. The *next* station is only 150mi further, at
+        mile 600 -- trivially reachable from mile 450 on a 500mi-range
+        vehicle. An earlier version of this function measured that second
+        station's distance from the origin (mile 0) instead of from where
+        the vehicle actually was after the first stop, saw 600mi > 500mi,
+        and raised InfeasibleRoute on a route that was completely fine.
+        Verified against the discretized reference below, which agrees the
+        true optimal cost is $260.00 (60gal at $3.00 from mile 0 covering
+        the first two legs, 40gal at $2.00 for the last 400mi).
+        """
+        stations = [(450, 3.0), (600, 2.0)]
+        plan = plan_fuel_stops(stations, 1000, 500, 10)
+        self.assertAlmostEqual(plan.total_cost, 260.0, places=2)
+        self.assertAlmostEqual(plan.total_gallons, 100.0, places=6)
+        ref_cost = _discretized_reference(stations, 1000, 500, 10, step=0.5)
+        self.assertAlmostEqual(ref_cost, 260.0, delta=1.0)
+
+    def test_merges_a_split_purchase_at_the_same_station_into_one_stop(self):
+        """The mile-0 origin purchase and the real first station's own
+        decision can land on the same station; the response should read as
+        one combined stop, not a suspicious-looking duplicate."""
+        stations = [(450, 3.0), (600, 2.0)]
+        plan = plan_fuel_stops(stations, 1000, 500, 10)
+        station_indexes = [stop.station_index for stop in plan.stops]
+        self.assertEqual(len(station_indexes), len(set(station_indexes)))
 
 
 class OptimizerPropertyTests(SimpleTestCase):

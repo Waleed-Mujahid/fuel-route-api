@@ -30,6 +30,27 @@ at +infinity, makes the finish line participate in both rules: it's
 never "the nearest cheaper station," so rule 2's remaining-distance
 cap is what actually gets the last leg right, with no special case.
 
+A third wrong turn, caught by an independent review rather than during
+initial development: the "origin is a purchase point" rule was first
+implemented by *relocating* the nearest real station to mile 0
+(overwriting its own position for every downstream distance check),
+rather than adding mile 0 as a genuinely separate node priced at that
+station's rate. That collapsed two different positions into one, and
+every reachability check for stations after the first one ended up
+measuring distance from mile 0 instead of from where the vehicle
+actually was — understating how much range was really left, capable
+of raising InfeasibleRoute on routes that were completely fine.
+Concretely: a station at mile 450 and another only 150mi further at
+mile 600 are trivially reachable on a 500mi-range vehicle, but the old
+code measured the second station as 600mi from the origin and
+rejected it. The fix appends an actual node at mile 0, priced like the
+nearest station, ahead of the real station list, so every node —
+including that real first station — is evaluated at its own true
+position with no special case. The nearest station can then
+legitimately end up in the output twice in a row (once for whatever
+the mile-0 purchase covers, once for its own fresh decision); those
+get merged into a single reported stop below.
+
 Validated with a property test (fuelroute/tests/test_optimizer.py)
 against an independent dynamic-programming reference across hundreds
 of randomized instances.
@@ -105,15 +126,9 @@ def plan_fuel_stops(
             f'beyond the {max_range_miles:.0f}mi max range.'
         )
 
-    nodes = [
-        _Node(
-            effective_mile=0.0 if i == 0 else mile,
-            true_mile=mile,
-            price=price,
-            station_index=index,
-        )
-        for i, (mile, (price, index)) in enumerate(ordered)
-    ]
+    first_mile, (first_price, first_index) = ordered[0]
+    nodes = [_Node(0.0, first_mile, first_price, first_index)]
+    nodes += [_Node(mile, mile, price, index) for mile, (price, index) in ordered]
     nodes.append(_Node(distance_miles, distance_miles, math.inf, -1))
 
     stops: list[FuelStop] = []
@@ -157,8 +172,36 @@ def plan_fuel_stops(
 
         leftover_miles -= nodes[i + 1].effective_mile - node.effective_mile
 
+    stops = _merge_adjacent_same_station(stops)
+
     return Plan(
         stops=stops,
         total_cost=sum(s.cost for s in stops),
         total_gallons=sum(s.gallons for s in stops),
     )
+
+
+def _merge_adjacent_same_station(stops: list[FuelStop]) -> list[FuelStop]:
+    """Collapse consecutive stops at the same station into one line item.
+
+    The virtual mile-0 origin node and the real nearest station share a
+    station_index by construction (see plan_fuel_stops), so a plan can
+    legitimately buy fuel "at" that station twice in a row -- once for
+    whatever the origin purchase covers, once for its own fresh
+    decision. Reporting that as two separate stops would look like a
+    duplicate rather than what it actually is: one combined purchase.
+    """
+    merged: list[FuelStop] = []
+    for stop in stops:
+        if merged and merged[-1].station_index == stop.station_index:
+            previous = merged[-1]
+            merged[-1] = FuelStop(
+                station_index=previous.station_index,
+                mile_marker=previous.mile_marker,
+                price_per_gallon=previous.price_per_gallon,
+                gallons=previous.gallons + stop.gallons,
+                cost=previous.cost + stop.cost,
+            )
+        else:
+            merged.append(stop)
+    return merged

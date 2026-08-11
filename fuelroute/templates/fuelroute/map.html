@@ -4,6 +4,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Django's SecurityMiddleware sends Referrer-Policy: same-origin site-wide, which
+       strips the Referer header on the cross-origin tile requests below -- OSM's tile
+       servers 403 any request with no Referer. Loosen it only on this page. -->
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Fuel Route Optimizer</title>
   <link rel="stylesheet" href="{% static 'fuelroute/leaflet/leaflet.css' %}">
   <style>

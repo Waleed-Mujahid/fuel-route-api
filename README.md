@@ -80,24 +80,31 @@ buy — is precomputed or local.
 ## The optimizer
 
 This is the classic "gas station problem," reduced to a fixed route: the vehicle starts with an
-empty tank, and the station nearest the route's start is treated as sitting at mile 0 (fuel up
-right where you set off, at that station's price).
+empty tank, and mile 0 is itself a purchase point, priced at the nearest station's rate (fuel up
+right where you set off, at that station's price) — a real node in the algorithm's own right,
+separate from the nearest station's own true position.
 
 > At the current stop: if a station with a **strictly lower** price is reachable within range,
 > buy exactly enough fuel to reach it. Otherwise, buy exactly enough to reach
 > `min(max_range, distance remaining to the destination)`.
 
-The second branch is the one that's easy to get subtly wrong, and got it wrong twice during
-development before landing on the rule above (both wrong turns, and the concrete case that
-disproved each one, are narrated in `fuelroute/services/optimizer.py`'s module docstring and in
-the `feat(optimizer)` / `test` commits — left in on purpose, as evidence this wasn't pasted from
-memory or a tutorial without checking it). In short:
+Three wrong turns were made and rejected while landing on the rule above and its mile-0 handling
+(narrated in full, with the concrete case that disproved each one, in
+`fuelroute/services/optimizer.py`'s module docstring and the `feat(optimizer)` / `fix(optimizer)`
+commits — left in on purpose, as evidence this wasn't pasted from memory or a tutorial without
+checking it):
 
 - Capping the purchase at the **farthest candidate station** instead of the true remaining
   distance *underbuys* — it passes up cheap capacity a later, pricier stop then has to make up
   for.
 - Capping it at "always fill the tank" *overbuys* once the destination is closer than the max
   range.
+- **Found by an independent code review, after the fact.** The first shipped version modeled
+  "mile 0 is a purchase point" by *relocating* the nearest station onto mile 0 rather than adding
+  mile 0 as its own node — which made every reachability check for a station *after* the first
+  one measure distance from mile 0 instead of from where the vehicle actually was, capable of
+  raising a false `InfeasibleRoute` on routes that were completely fine. Fixed by giving mile 0
+  its own node; see the `fix(optimizer)` commit for the exact case that exposed it.
 
 **This is validated, not just argued.** `fuelroute/tests/test_optimizer.py` runs the greedy
 against an independent reference — a 2D dynamic program over discretized `(position, fuel

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from fuelroute.models import FuelStation
 from fuelroute.services.highways import parse_highway
@@ -143,8 +144,9 @@ class Command(BaseCommand):
                     highway=parse_highway(address),
                 ))
 
-        FuelStation.objects.all().delete()
-        FuelStation.objects.bulk_create(stations, batch_size=1000)
+        with transaction.atomic():
+            FuelStation.objects.all().delete()
+            FuelStation.objects.bulk_create(stations, batch_size=1000)
 
         self.stdout.write(self.style.SUCCESS(f'Imported {len(stations)} stations.'))
         self.stdout.write(f'Dropped {dropped_non_us} non-US rows.')

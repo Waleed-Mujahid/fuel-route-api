@@ -9,7 +9,7 @@ every address embeds a parseable highway.
 import re
 
 _HIGHWAY_PATTERN = re.compile(
-    r'\b((?:I|US|SR|SH|HWY)[\s-]*\d+)(?![\d])',
+    r'\b((?:I|US|SR|SH|HWY|ST|RT)[\s-]*\d+)(?![\d])',
     re.IGNORECASE,
 )
 

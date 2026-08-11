@@ -81,21 +81,30 @@ class RouteIndex:
     def _cell_key(lat: float, lng: float) -> tuple[int, int]:
         return (math.floor(lat / GRID_CELL_DEGREES), math.floor(lng / GRID_CELL_DEGREES))
 
-    def nearest(self, lat: float, lng: float) -> RoutePoint | None:
+    def nearest(
+        self, lat: float, lng: float, search_radius_miles: float = 0.0
+    ) -> RoutePoint | None:
         """Return the route point nearest to (lat, lng).
 
-        Only searches the 3x3 block of cells around (lat, lng), so a
-        point with no route samples anywhere nearby returns None rather
-        than paying for a brute-force scan. That's exactly the signal a
-        corridor search wants: the grid cell is ~17mi across, so an
-        empty 3x3 block means the nearest route point (if any) is well
-        outside any reasonable corridor width.
+        Probes a block of cells around (lat, lng) sized so the search
+        radius fully covers `search_radius_miles` even in the worst
+        case (the point sitting right at the edge of its own cell) —
+        not just the fixed 3x3 block a single grid cell would guarantee.
+        A point with no route samples anywhere in range returns None
+        rather than paying for a brute-force scan.
         """
+        # Degrees-per-mile shrinks the cell's longitude span at higher
+        # latitudes (cos(lat)), so ring count must scale with it, not
+        # just with GRID_CELL_DEGREES.
+        miles_per_lng_degree = 69.172 * max(math.cos(math.radians(lat)), 1e-6)
+        cell_width_miles = GRID_CELL_DEGREES * min(69.172, miles_per_lng_degree)
+        rings = max(1, math.ceil(search_radius_miles / cell_width_miles) + 1)
+
         cell_lat, cell_lng = self._cell_key(lat, lng)
         candidates = [
             point
-            for d_lat in (-1, 0, 1)
-            for d_lng in (-1, 0, 1)
+            for d_lat in range(-rings, rings + 1)
+            for d_lng in range(-rings, rings + 1)
             for point in self._cells.get((cell_lat + d_lat, cell_lng + d_lng), [])
         ]
         if not candidates:

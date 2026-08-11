@@ -43,7 +43,9 @@ def find_candidates(route: Route, corridor_miles: float | None = None) -> list[C
 
     candidates = []
     for station in get_snapshot():
-        nearest = index.nearest(station.latitude, station.longitude)
+        nearest = index.nearest(
+            station.latitude, station.longitude, search_radius_miles=corridor_miles
+        )
         if nearest is None:
             continue
 

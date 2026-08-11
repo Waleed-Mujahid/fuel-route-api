@@ -76,10 +76,8 @@ def _discretized_reference(
 
         if pos_idx == n_pos - 1:
             break
-        next_dp = [inf] * n_fuel
-        for f in range(1, n_fuel):
-            next_dp[f - 1] = min(next_dp[f - 1], dp[f])
-        dp = next_dp
+        # Advancing one step burns one fuel unit: shift the table down by one.
+        dp = dp[1:] + [inf]
 
     best = min(dp)
     return best if best != inf else None

@@ -23,6 +23,10 @@ METERS_PER_MILE = 1609.344
 # genuinely different ones.
 _COORD_CACHE_DECIMALS = 5
 
+# Bump when the cached `Route` shape changes, so old pickles are ignored.
+_ROUTE_CACHE_VERSION = 1
+_ROUTE_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30
+
 
 class RoutingError(Exception):
     """Raised when a route can't be produced or the provider call fails."""
@@ -75,17 +79,22 @@ class OSRMClient:
 
     @staticmethod
     def _parse(osrm_route: dict) -> Route:
-        refs = [
-            step.get('ref', '')
-            for leg in osrm_route['legs']
-            for step in leg['steps']
-        ]
-        return Route(
-            distance_miles=osrm_route['distance'] / METERS_PER_MILE,
-            duration_seconds=osrm_route['duration'],
-            coordinates=[tuple(pt) for pt in osrm_route['geometry']['coordinates']],
-            highways=parse_route_highways(refs),
-        )
+        try:
+            refs = [
+                step.get('ref', '')
+                for leg in osrm_route['legs']
+                for step in leg['steps']
+            ]
+            return Route(
+                distance_miles=osrm_route['distance'] / METERS_PER_MILE,
+                duration_seconds=osrm_route['duration'],
+                coordinates=[
+                    (float(pt[0]), float(pt[1])) for pt in osrm_route['geometry']['coordinates']
+                ],
+                highways=parse_route_highways(refs),
+            )
+        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            raise RoutingError(f'Malformed OSRM route payload: {exc}') from exc
 
 
 def get_route(start: tuple[float, float], finish: tuple[float, float]) -> Route:
@@ -96,19 +105,20 @@ def get_route(start: tuple[float, float], finish: tuple[float, float]) -> Route:
 def _route_cache_key(start: tuple[float, float], finish: tuple[float, float]) -> str:
     d = _COORD_CACHE_DECIMALS
     raw = f'{start[0]:.{d}f},{start[1]:.{d}f}->{finish[0]:.{d}f},{finish[1]:.{d}f}'
-    return f'osrm_route:{hashlib.sha1(raw.encode()).hexdigest()}'
+    digest = hashlib.sha1(raw.encode()).hexdigest()
+    return f'osrm_route:v{_ROUTE_CACHE_VERSION}:{digest}'
 
 
 def get_cached_route(
     start: tuple[float, float], finish: tuple[float, float]
 ) -> tuple[Route, bool]:
-    """Fetch a route, caching it forever by rounded (start, finish) coordinates.
+    """Fetch a route, caching it by rounded (start, finish) coordinates.
 
     Returns (route, was_cached) so a caller can report whether this
     request actually made a network call to the routing provider — the
     same route between the same two points never needs asking OSRM
-    twice, and the "one call" figure the API reports should reflect
-    that honestly rather than always claiming 1.
+    twice within the cache's TTL, and the "one call" figure the API
+    reports should reflect that honestly rather than always claiming 1.
     """
     key = _route_cache_key(start, finish)
     cached = cache.get(key)
@@ -116,5 +126,5 @@ def get_cached_route(
         return cached, True
 
     route = get_route(start, finish)
-    cache.set(key, route, timeout=None)
+    cache.set(key, route, timeout=_ROUTE_CACHE_TTL_SECONDS)
     return route, False

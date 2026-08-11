@@ -64,6 +64,7 @@
     }).addTo(map);
 
     let routeLayer = null;
+    let latestRequestId = 0;
 
     function numberedIcon(n) {
       return L.divIcon({
@@ -114,6 +115,7 @@
     }
 
     async function planRoute(start, finish) {
+      const requestId = ++latestRequestId;
       setStatus('Planning route...', false);
       if (routeLayer) {
         map.removeLayer(routeLayer);
@@ -130,11 +132,14 @@
           body: JSON.stringify({ start, finish }),
         });
       } catch (err) {
+        if (requestId !== latestRequestId) return;
         setStatus(`Request failed: ${err}`, true);
         return;
       }
 
       const data = await response.json();
+      if (requestId !== latestRequestId) return;
+
       if (!response.ok) {
         setStatus(data.detail || JSON.stringify(data), true);
         return;

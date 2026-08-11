@@ -102,6 +102,10 @@ class RouteViewTests(APITestCase):
     def test_missing_required_field_returns_400(self):
         response = self._post({'start': 'A, TX'})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        body = response.json()
+        self.assertIn('detail', body)
+        self.assertIsInstance(body['detail'], str)
+        self.assertIn('finish', body['detail'])
 
     @patch('fuelroute.services.trip.get_cached_route')
     @patch('fuelroute.services.trip.geocode')

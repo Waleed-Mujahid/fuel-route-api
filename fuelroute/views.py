@@ -99,7 +99,12 @@ class RouteView(APIView):
     )
     def post(self, request: Request) -> Response:
         params = RouteRequestSerializer(data=request.data)
-        params.is_valid(raise_exception=True)
+        if not params.is_valid():
+            detail = '; '.join(
+                f'{field}: {" ".join(str(e) for e in errors)}'
+                for field, errors in params.errors.items()
+            )
+            return Response({'detail': detail}, status=status.HTTP_400_BAD_REQUEST)
         data = params.validated_data
 
         try:

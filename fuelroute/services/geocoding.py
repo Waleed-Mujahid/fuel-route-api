@@ -29,7 +29,10 @@ def geocode(location: str) -> tuple[float, float]:
     """
     direct = _LAT_LNG_PATTERN.match(location)
     if direct:
-        return float(direct.group(1)), float(direct.group(2))
+        latitude, longitude = float(direct.group(1)), float(direct.group(2))
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            raise GeocodingError(f'Invalid coordinates: {location!r}')
+        return latitude, longitude
 
     normalized = location.strip().lower()
     cache_key = f'geocode:{hashlib.sha1(normalized.encode()).hexdigest()}'
@@ -46,12 +49,11 @@ def geocode(location: str) -> tuple[float, float]:
         )
         response.raise_for_status()
         results = response.json()
-    except (requests.RequestException, ValueError) as exc:
+        if not results:
+            raise GeocodingError(f'No match found for {location!r}')
+        coords = (float(results[0]['lat']), float(results[0]['lon']))
+    except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
         raise GeocodingError(f'Nominatim request failed for {location!r}: {exc}') from exc
 
-    if not results:
-        raise GeocodingError(f'No match found for {location!r}')
-
-    coords = (float(results[0]['lat']), float(results[0]['lon']))
     cache.set(cache_key, coords, timeout=None)
     return coords

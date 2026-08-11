@@ -80,6 +80,15 @@
       el.className = isError ? 'error' : '';
     }
 
+    function escapeHtml(value) {
+      // Station name/address/city/state come from the vendored CSV, not
+      // user input, but they land in innerHTML below -- escape rather
+      // than trust that a data file will never contain HTML metacharacters.
+      return String(value).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+    }
+
     function renderSummary(data) {
       const dl = document.getElementById('summary');
       const rows = [
@@ -98,8 +107,8 @@
       ul.innerHTML = stops.map((s, i) => `
         <li>
           <span class="stop-badge">${i + 1}</span>
-          <span class="stop-name">${s.name}</span><br>
-          <span class="stop-price">${s.city}, ${s.state} &middot; $${s.price_per_gallon.toFixed(3)}/gal &middot; ${s.gallons.toFixed(2)} gal &middot; $${s.cost.toFixed(2)}</span>
+          <span class="stop-name">${escapeHtml(s.name)}</span><br>
+          <span class="stop-price">${escapeHtml(s.city)}, ${escapeHtml(s.state)} &middot; $${s.price_per_gallon.toFixed(3)}/gal &middot; ${s.gallons.toFixed(2)} gal &middot; $${s.cost.toFixed(2)}</span>
         </li>
       `).join('');
     }
@@ -147,7 +156,7 @@
       data.fuel_stops.forEach((s, i) => {
         L.marker([s.lat, s.lng], { icon: numberedIcon(i + 1) })
           .addTo(routeLayer)
-          .bindPopup(`<b>${s.name}</b><br>${s.address}, ${s.city}, ${s.state}<br>$${s.price_per_gallon.toFixed(3)}/gal &middot; ${s.gallons.toFixed(2)} gal &middot; $${s.cost.toFixed(2)}`);
+          .bindPopup(`<b>${escapeHtml(s.name)}</b><br>${escapeHtml(s.address)}, ${escapeHtml(s.city)}, ${escapeHtml(s.state)}<br>$${s.price_per_gallon.toFixed(3)}/gal &middot; ${s.gallons.toFixed(2)} gal &middot; $${s.cost.toFixed(2)}`);
       });
       map.fitBounds(L.latLngBounds(latLngs), { padding: [24, 24] });
     }

@@ -70,11 +70,6 @@ components:
         mile_marker:
           type: number
           format: double
-        detour_miles:
-          type: number
-          format: double
-        highway:
-          type: string
         price_per_gallon:
           type: number
           format: double
@@ -88,9 +83,7 @@ components:
       - address
       - city
       - cost
-      - detour_miles
       - gallons
-      - highway
       - lat
       - lng
       - mile_marker

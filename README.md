@@ -17,7 +17,7 @@ POST /api/v1/route/  {"start": "New York, NY", "finish": "Los Angeles, CA"}
     {
       "name": "DELTA", "city": "Jersey City", "state": "NJ",
       "price_per_gallon": 3.239, "gallons": 0.732, "cost": 2.37,
-      "mile_marker": 2.24, "detour_miles": 1.04, "highway": "US9"
+      "mile_marker": 2.24
     }
   ],
   "total_cost_usd": 848.88,

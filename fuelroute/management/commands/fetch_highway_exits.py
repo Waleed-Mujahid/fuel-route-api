@@ -34,7 +34,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from fuelroute.management.commands.import_fuel_prices import US_STATE_CODES
-from fuelroute.services.highways import normalize_highway, parse_exit, parse_highway
+from fuelroute.services.highways import parse_exit, parse_highway
 
 _REF_SPLIT = re.compile(r'^([A-Z]+)(\d+)$')
 
@@ -100,7 +100,10 @@ def _run_query(session: requests.Session, query: str, log=lambda msg: None) -> l
             return response.json().get('elements', [])
         if response.status_code in (429, 504) and attempt < _MAX_ATTEMPTS:
             wait = _BACKOFF_BASE_SECONDS * attempt
-            log(f'  got {response.status_code}, backing off {wait}s (attempt {attempt}/{_MAX_ATTEMPTS})')
+            log(
+                f'  got {response.status_code}, backing off {wait}s '
+                f'(attempt {attempt}/{_MAX_ATTEMPTS})'
+            )
             time.sleep(wait)
             continue
         response.raise_for_status()

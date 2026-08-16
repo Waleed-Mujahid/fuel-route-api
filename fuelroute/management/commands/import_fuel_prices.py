@@ -72,7 +72,11 @@ def load_highway_exits(path: Path) -> dict[tuple[str, str, str], tuple[float, fl
         for row in csv.DictReader(f):
             if not row['exit'].strip():
                 continue  # sentinel row: this (state, highway) was queried and found nothing
-            key = (row['state'].strip().upper(), row['highway'].strip().upper(), row['exit'].strip().upper())
+            key = (
+                row['state'].strip().upper(),
+                row['highway'].strip().upper(),
+                row['exit'].strip().upper(),
+            )
             lookup[key] = (float(row['latitude']), float(row['longitude']))
     return lookup
 

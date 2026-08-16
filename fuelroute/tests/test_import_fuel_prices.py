@@ -107,9 +107,11 @@ class ImportPrecisionTests(TestCase):
             ['OPIS Truckstop ID', 'Truckstop Name', 'Address', 'City', 'State', 'Rack ID',
              'Retail Price'],
             [
-                ['7', 'WOODSHED OF BIG CABIN', 'I-44, EXIT 283 & US-69', 'Big Cabin', 'OK', '307', '3.50'],
+                ['7', 'WOODSHED OF BIG CABIN', 'I-44, EXIT 283 & US-69', 'Big Cabin', 'OK',
+                 '307', '3.50'],
                 ['7', 'WOODSHED', 'I-44, EXIT 283 & US-69', 'Big Cabin', 'OK', '307', '3.10'],
-                ['7', 'WOODSHED OF BIG CABIN', 'I-44, EXIT 283 & US-69', 'Big Cabin', 'OK', '307', '3.30'],
+                ['7', 'WOODSHED OF BIG CABIN', 'I-44, EXIT 283 & US-69', 'Big Cabin', 'OK',
+                 '307', '3.30'],
             ],
         )
         _write_csv(

@@ -1,6 +1,11 @@
 from django.test import SimpleTestCase
 
-from fuelroute.services.highways import normalize_highway, parse_exit, parse_highway, parse_route_highways
+from fuelroute.services.highways import (
+    normalize_highway,
+    parse_exit,
+    parse_highway,
+    parse_route_highways,
+)
 
 
 class ParseHighwayTests(SimpleTestCase):

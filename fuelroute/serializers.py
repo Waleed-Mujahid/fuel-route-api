@@ -24,6 +24,9 @@ class FuelStopSerializer(serializers.Serializer):
     lat = serializers.FloatField()
     lng = serializers.FloatField()
     mile_marker = serializers.FloatField()
+    geocode_precision = serializers.CharField(
+        help_text='"exit" if placed at a real highway interchange, "city" if at a city centroid.'
+    )
     price_per_gallon = serializers.FloatField()
     gallons = serializers.FloatField()
     cost = serializers.FloatField()

@@ -70,6 +70,10 @@ components:
         mile_marker:
           type: number
           format: double
+        geocode_precision:
+          type: string
+          description: '"exit" if placed at a real highway interchange, "city" if
+            at a city centroid.'
         price_per_gallon:
           type: number
           format: double
@@ -84,6 +88,7 @@ components:
       - city
       - cost
       - gallons
+      - geocode_precision
       - lat
       - lng
       - mile_marker

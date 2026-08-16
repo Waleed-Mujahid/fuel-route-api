@@ -23,6 +23,7 @@ class StationSnapshot:
     latitude: float
     longitude: float
     highway: str
+    geocode_precision: str
 
 
 def get_snapshot() -> list[StationSnapshot]:
@@ -40,6 +41,7 @@ def get_snapshot() -> list[StationSnapshot]:
                 latitude=station.latitude,
                 longitude=station.longitude,
                 highway=station.highway,
+                geocode_precision=station.geocode_precision,
             )
             for station in FuelStation.objects.all()
         ]

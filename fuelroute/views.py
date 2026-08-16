@@ -71,6 +71,7 @@ def _serialize_trip(result: TripResult) -> dict:
             'lat': candidate.station.latitude,
             'lng': candidate.station.longitude,
             'mile_marker': round(stop.mile_marker, 2),
+            'geocode_precision': candidate.station.geocode_precision,
             'price_per_gallon': stop.price_per_gallon,
             'gallons': round(stop.gallons, 3),
             'cost': round(stop.cost, 2),

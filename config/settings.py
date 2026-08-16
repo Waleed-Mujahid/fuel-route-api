@@ -198,4 +198,8 @@ VEHICLE_MAX_RANGE_MILES = float(os.environ.get('VEHICLE_MAX_RANGE_MILES', '500')
 VEHICLE_MPG = float(os.environ.get('VEHICLE_MPG', '10'))
 
 # How far off the route (miles) a station can sit and still be considered.
-CORRIDOR_MILES = float(os.environ.get('CORRIDOR_MILES', '20'))
+# 20mi (the original default) let real drivers-would-never-do-this detours
+# through as legitimate candidates -- e.g. a station 19.3mi off I-90 near
+# Syracuse, NY got selected as a trip's very first stop. 5mi matches how far
+# a real trucker would actually leave the highway for fuel.
+CORRIDOR_MILES = float(os.environ.get('CORRIDOR_MILES', '5'))

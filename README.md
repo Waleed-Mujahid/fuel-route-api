@@ -170,7 +170,7 @@ POST /api/v1/route/
 | `start`, `finish` | yes | Free text (`"New York, NY"`) or `"lat,lng"` — the latter skips geocoding entirely. |
 | `max_range_miles` | no | Defaults to 500. |
 | `mpg` | no | Defaults to 10. |
-| `corridor_miles` | no | Defaults to 20 — how far off-route a station can sit and still count. |
+| `corridor_miles` | no | Defaults to 5 — how far off-route a station can sit and still count. |
 
 An infeasible route (a gap wider than the vehicle's range, with nothing to refuel at in
 between) is **not** a 500 — it's a normal `200` with `"feasible": false` and a `"reason"`

@@ -6,3 +6,9 @@ db.sqlite3
 *.egg-info/
 .ruff_cache/
 .pytest_cache/
+docs/LOOM_SCRIPT.md
+
+# Local AI-assistant tool state — not project files.
+.claude/
+.omc/
+.omo/

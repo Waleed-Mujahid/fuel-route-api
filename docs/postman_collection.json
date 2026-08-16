@@ -1,0 +1,139 @@
+{
+  "info": {
+    "_postman_id": "8f3e7b6c-6f6d-4a7b-9f4c-1a2b3c4d5e6f",
+    "name": "Fuel Route Optimizer",
+    "description": "POST a US start/finish, get back the driving route plus the cost-minimal sequence of fuel stops.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/healthz/"
+      }
+    },
+    {
+      "name": "Route: NYC -> LA",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"New York, NY\",\n  \"finish\": \"Los Angeles, CA\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/route/"
+      }
+    },
+    {
+      "name": "Route: Chicago -> Omaha",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"finish\": \"Omaha, NE\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/route/"
+      }
+    },
+    {
+      "name": "Route: direct lat,lng input",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"40.7128,-74.0060\",\n  \"finish\": \"34.0522,-118.2437\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/route/"
+      }
+    },
+    {
+      "name": "Route: custom vehicle params",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Miami, FL\",\n  \"finish\": \"Seattle, WA\",\n  \"max_range_miles\": 350,\n  \"mpg\": 8,\n  \"corridor_miles\": 10\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/route/"
+      }
+    },
+    {
+      "name": "Route: infeasible",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"New York, NY\",\n  \"finish\": \"Los Angeles, CA\",\n  \"max_range_miles\": 10\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/route/"
+      }
+    },
+    {
+      "name": "Route: unresolvable location",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Zzqxnotarealplace\",\n  \"finish\": \"Los Angeles, CA\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/route/"
+      }
+    },
+    {
+      "name": "Swagger UI",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/docs/"
+      }
+    },
+    {
+      "name": "Map preview (NYC -> LA)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/map/?start=New%20York%2C%20NY&finish=Los%20Angeles%2C%20CA"
+      }
+    }
+  ]
+}

@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: Fuel Route Optimizer API
+  version: 1.0.0
+  description: Given a US start and finish location, returns the driving route plus
+    the cost-optimal sequence of fuel stops for a 500-mile-range, 10-mpg vehicle.
+paths:
+  /api/v1/route/:
+    post:
+      operationId: v1_route_create
+      description: POST a US start/finish, get back the route and the cost-optimal
+        fuel stops.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    FuelStop:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        mile_marker:
+          type: number
+          format: double
+        geocode_precision:
+          type: string
+          description: '"exit" if placed at a real highway interchange, "city" if
+            at a city centroid.'
+        price_per_gallon:
+          type: number
+          format: double
+        gallons:
+          type: number
+          format: double
+        cost:
+          type: number
+          format: double
+      required:
+      - address
+      - city
+      - cost
+      - gallons
+      - geocode_precision
+      - lat
+      - lng
+      - mile_marker
+      - name
+      - price_per_gallon
+      - state
+    LatLng:
+      type: object
+      properties:
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+      required:
+      - lat
+      - lng
+    RouteGeometry:
+      type: object
+      properties:
+        type:
+          type: string
+          default: LineString
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+            maxItems: 2
+            minItems: 2
+      required:
+      - coordinates
+    RouteRequest:
+      type: object
+      properties:
+        start:
+          type: string
+          description: US location, e.g. "New York, NY" or "40.71,-74.00"
+        finish:
+          type: string
+          description: US location, e.g. "Los Angeles, CA"
+        max_range_miles:
+          type: number
+          format: double
+          minimum: 1
+        mpg:
+          type: number
+          format: double
+          minimum: 0.1
+        corridor_miles:
+          type: number
+          format: double
+          minimum: 0.1
+      required:
+      - finish
+      - start
+    RouteResponse:
+      type: object
+      properties:
+        feasible:
+          type: boolean
+        reason:
+          type: string
+        start:
+          $ref: '#/components/schemas/LatLng'
+        finish:
+          $ref: '#/components/schemas/LatLng'
+        distance_miles:
+          type: number
+          format: double
+        duration_seconds:
+          type: number
+          format: double
+        route:
+          $ref: '#/components/schemas/RouteGeometry'
+        fuel_stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/FuelStop'
+        total_cost_usd:
+          type: number
+          format: double
+        total_gallons:
+          type: number
+          format: double
+        api_calls:
+          type: integer
+        elapsed_ms:
+          type: number
+          format: double
+      required:
+      - api_calls
+      - distance_miles
+      - duration_seconds
+      - elapsed_ms
+      - feasible
+      - finish
+      - fuel_stops
+      - route
+      - start
+      - total_cost_usd
+      - total_gallons
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

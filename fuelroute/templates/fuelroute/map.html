@@ -1,0 +1,189 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Django's SecurityMiddleware sends Referrer-Policy: same-origin site-wide, which
+       strips the Referer header on the cross-origin tile requests below -- OSM's tile
+       servers 403 any request with no Referer. Loosen it only on this page. -->
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Fuel Route Optimizer</title>
+  <link rel="stylesheet" href="{% static 'fuelroute/leaflet/leaflet.css' %}">
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+    #layout { display: flex; height: 100%; }
+    #sidebar { width: 340px; flex: none; padding: 16px; box-sizing: border-box; overflow-y: auto; border-right: 1px solid #ddd; }
+    #map { flex: 1; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-top: 12px; }
+    input { width: 100%; box-sizing: border-box; padding: 6px 8px; margin-top: 4px; font-size: 14px; }
+    button { width: 100%; margin-top: 14px; padding: 8px; font-size: 14px; cursor: pointer; }
+    #status { margin-top: 12px; font-size: 13px; color: #555; }
+    #status.error { color: #b00020; }
+    #summary { margin-top: 16px; font-size: 13px; line-height: 1.6; }
+    #summary dt { font-weight: 600; }
+    #summary dd { margin: 0 0 6px 0; }
+    #stops { margin-top: 16px; padding: 0; list-style: none; font-size: 13px; }
+    #stops li { padding: 8px 0; border-top: 1px solid #eee; }
+    #stops li .stop-name { font-weight: 600; }
+    #stops li .stop-price { color: #555; }
+    .stop-badge {
+      display: inline-block; width: 20px; height: 20px; line-height: 20px;
+      text-align: center; border-radius: 50%; background: #1a73e8; color: #fff;
+      font-size: 11px; font-weight: 700; margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="layout">
+    <div id="sidebar">
+      <h2>Fuel Route Optimizer</h2>
+      <form id="route-form">
+        <label for="start">Start</label>
+        <input id="start" name="start" placeholder="New York, NY" value="{{ start }}" required>
+        <label for="finish">Finish</label>
+        <input id="finish" name="finish" placeholder="Los Angeles, CA" value="{{ finish }}" required>
+        <button type="submit">Plan Route</button>
+      </form>
+      <div id="status"></div>
+      <dl id="summary"></dl>
+      <ul id="stops"></ul>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <script src="{% static 'fuelroute/leaflet/leaflet.js' %}"></script>
+  <script>
+    const iconBase = "{% static 'fuelroute/leaflet/images/' %}";
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: iconBase + 'marker-icon-2x.png',
+      iconUrl: iconBase + 'marker-icon.png',
+      shadowUrl: iconBase + 'marker-shadow.png',
+    });
+
+    const map = L.map('map').setView([39.5, -98.35], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+
+    let routeLayer = null;
+    let latestRequestId = 0;
+
+    function numberedIcon(n) {
+      return L.divIcon({
+        className: '',
+        html: `<div class="stop-badge" style="width:24px;height:24px;line-height:24px;font-size:12px;box-shadow:0 0 0 2px #fff;">${n}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+    }
+
+    function setStatus(message, isError) {
+      const el = document.getElementById('status');
+      el.textContent = message;
+      el.className = isError ? 'error' : '';
+    }
+
+    function escapeHtml(value) {
+      // Station name/address/city/state come from the vendored CSV, not
+      // user input, but they land in innerHTML below -- escape rather
+      // than trust that a data file will never contain HTML metacharacters.
+      return String(value).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+    }
+
+    function renderSummary(data) {
+      const dl = document.getElementById('summary');
+      const rows = [
+        ['Distance', `${data.distance_miles.toFixed(1)} mi`],
+        ['Duration', `${(data.duration_seconds / 3600).toFixed(1)} h`],
+        ['Fuel cost', `$${data.total_cost_usd.toFixed(2)}`],
+        ['Fuel used', `${data.total_gallons.toFixed(2)} gal`],
+        ['Routing API calls', data.api_calls],
+        ['Server time', `${data.elapsed_ms.toFixed(0)} ms`],
+      ];
+      dl.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    }
+
+    function renderStops(stops) {
+      const ul = document.getElementById('stops');
+      ul.innerHTML = stops.map((s, i) => `
+        <li>
+          <span class="stop-badge">${i + 1}</span>
+          <span class="stop-name">${escapeHtml(s.name)}</span><br>
+          <span class="stop-price">${escapeHtml(s.city)}, ${escapeHtml(s.state)} &middot; $${s.price_per_gallon.toFixed(3)}/gal &middot; ${s.gallons.toFixed(2)} gal &middot; $${s.cost.toFixed(2)}</span>
+        </li>
+      `).join('');
+    }
+
+    async function planRoute(start, finish) {
+      const requestId = ++latestRequestId;
+      setStatus('Planning route...', false);
+      if (routeLayer) {
+        map.removeLayer(routeLayer);
+        routeLayer = null;
+      }
+      document.getElementById('summary').innerHTML = '';
+      document.getElementById('stops').innerHTML = '';
+
+      let response;
+      try {
+        response = await fetch('/api/v1/route/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ start, finish }),
+        });
+      } catch (err) {
+        if (requestId !== latestRequestId) return;
+        setStatus(`Request failed: ${err}`, true);
+        return;
+      }
+
+      const data = await response.json();
+      if (requestId !== latestRequestId) return;
+
+      if (!response.ok) {
+        setStatus(data.detail || JSON.stringify(data), true);
+        return;
+      }
+      if (!data.feasible) {
+        setStatus(`Route infeasible: ${data.reason}`, true);
+        return;
+      }
+
+      setStatus('', false);
+      renderSummary(data);
+      renderStops(data.fuel_stops);
+
+      routeLayer = L.layerGroup().addTo(map);
+      const latLngs = data.route.coordinates.map(([lng, lat]) => [lat, lng]);
+      L.polyline(latLngs, { color: '#1a73e8', weight: 4 }).addTo(routeLayer);
+      L.marker([data.start.lat, data.start.lng]).addTo(routeLayer).bindPopup('Start');
+      L.marker([data.finish.lat, data.finish.lng]).addTo(routeLayer).bindPopup('Finish');
+      data.fuel_stops.forEach((s, i) => {
+        L.marker([s.lat, s.lng], { icon: numberedIcon(i + 1) })
+          .addTo(routeLayer)
+          .bindPopup(`<b>${escapeHtml(s.name)}</b><br>${escapeHtml(s.address)}, ${escapeHtml(s.city)}, ${escapeHtml(s.state)}<br>$${s.price_per_gallon.toFixed(3)}/gal &middot; ${s.gallons.toFixed(2)} gal &middot; $${s.cost.toFixed(2)}`);
+      });
+      map.fitBounds(L.latLngBounds(latLngs), { padding: [24, 24] });
+    }
+
+    document.getElementById('route-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const start = document.getElementById('start').value.trim();
+      const finish = document.getElementById('finish').value.trim();
+      if (start && finish) {
+        planRoute(start, finish);
+      }
+    });
+
+    const initialStart = "{{ start|escapejs }}";
+    const initialFinish = "{{ finish|escapejs }}";
+    if (initialStart && initialFinish) {
+      planRoute(initialStart, initialFinish);
+    }
+  </script>
+</body>
+</html>

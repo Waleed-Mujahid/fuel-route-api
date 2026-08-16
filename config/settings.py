@@ -146,6 +146,16 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
     'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser'],
+    # The API has no concept of a logged-in user -- no view reads
+    # request.user or checks a permission. Leaving DRF's own default
+    # (SessionAuthentication) in place meant a POST to /api/v1/route/
+    # would 403 with "CSRF Failed: CSRF token missing" whenever the
+    # browser happened to be carrying a Django admin session cookie,
+    # since SessionAuthentication enforces CSRF for any authenticated
+    # session and /map/'s fetch() never sends that header. Turning
+    # authentication off entirely removes the dependency on unrelated
+    # browser session state rather than papering over it in the JS.
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
 }
 
 SPECTACULAR_SETTINGS = {
@@ -176,8 +186,20 @@ NOMINATIM_USER_AGENT = os.environ.get(
 )
 NOMINATIM_TIMEOUT_SECONDS = float(os.environ.get('NOMINATIM_TIMEOUT_SECONDS', '10'))
 
+# Overpass (OSM) API — used only offline, by fetch_highway_exits, to build
+# data/highway_exits.csv. Never called at request time.
+OVERPASS_BASE_URL = os.environ.get('OVERPASS_BASE_URL', 'https://overpass-api.de/api/interpreter')
+OVERPASS_USER_AGENT = os.environ.get(
+    'OVERPASS_USER_AGENT', 'fuel-route-api (assessment project)'
+)
+OVERPASS_TIMEOUT_SECONDS = float(os.environ.get('OVERPASS_TIMEOUT_SECONDS', '90'))
+
 VEHICLE_MAX_RANGE_MILES = float(os.environ.get('VEHICLE_MAX_RANGE_MILES', '500'))
 VEHICLE_MPG = float(os.environ.get('VEHICLE_MPG', '10'))
 
 # How far off the route (miles) a station can sit and still be considered.
-CORRIDOR_MILES = float(os.environ.get('CORRIDOR_MILES', '20'))
+# 20mi (the original default) let real drivers-would-never-do-this detours
+# through as legitimate candidates -- e.g. a station 19.3mi off I-90 near
+# Syracuse, NY got selected as a trip's very first stop. 5mi matches how far
+# a real trucker would actually leave the highway for fuel.
+CORRIDOR_MILES = float(os.environ.get('CORRIDOR_MILES', '5'))

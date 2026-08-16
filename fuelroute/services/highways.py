@@ -13,6 +13,8 @@ _HIGHWAY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_EXIT_PATTERN = re.compile(r'\bEXIT[\s#-]*(\d+[\s-]?[A-Z]?)\b', re.IGNORECASE)
+
 
 def normalize_highway(ref: str) -> str:
     """Canonicalize a highway ref so differently-formatted refs compare equal.
@@ -27,11 +29,23 @@ def normalize_highway(ref: str) -> str:
 def parse_highway(address: str) -> str:
     """Return the first normalized highway ref found in `address`, or ''.
 
-    Roughly 93% of the supplied dataset's addresses embed one, e.g.
+    Roughly 98% of the supplied dataset's addresses embed one, e.g.
     "I-44, EXIT 283 & US-69" -> "I44".
     """
     match = _HIGHWAY_PATTERN.search(address)
     return normalize_highway(match.group(1)) if match else ''
+
+
+def parse_exit(address: str) -> str:
+    """Return the normalized exit number in `address`, or ''.
+
+    "I-44, EXIT 283 & US-69" -> "283"; "EXIT 144-B" -> "144B". Used to
+    look up a station's position against `data/highway_exits.csv`
+    (real motorway_junction coordinates), a tier more precise than the
+    city-centroid gazetteer for the ~55% of addresses that embed one.
+    """
+    match = _EXIT_PATTERN.search(address)
+    return re.sub(r'[\s-]+', '', match.group(1).upper()) if match else ''
 
 
 def parse_route_highways(refs: list[str]) -> set[str]:

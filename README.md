@@ -46,25 +46,64 @@ offline, ahead of time — which is what most of this repository is actually for
 
 ### How it's solved
 
-1. **Offline geocoding at import time**, not request time. A US city gazetteer
-   ([`kelvins/US-Cities-Database`](https://github.com/kelvins/US-Cities-Database), MIT, vendored
-   in `data/us_cities.csv`) is joined against each station's `(CITY, STATE)`. Of the CSV's 3,808
-   unique US city/state pairs (620 non-US rows are dropped), the gazetteer alone covers **3,802
-   (99.8%)** with zero network calls. The remaining 6 are committed as
-   `data/geocode_overrides.json`, resolved once via Nominatim during development. Net result:
-   all **7,531** US stations geocoded, 0 unresolved, and `import_fuel_prices` runs fully offline
-   — a couple of seconds — every time after that.
+1. **Offline geocoding at import time**, not request time, in two precision tiers — most
+   precise first:
 
-   **Honest limitation:** these are city centroids, not exact truckstop pins — a station's
-   plotted position can be off by a few miles. That's what the highway cross-check below is for.
+   - **Exit interchange.** ~55% of addresses embed both a highway *and* an exit number
+     (`"I-44, EXIT 283 & US-69"`). `manage.py fetch_highway_exits` queries the Overpass API
+     (OpenStreetMap) once per `(state, highway)` pair actually referenced in the CSV — not per
+     station — for that specific way's `motorway_junction` nodes, and commits the result as
+     `data/highway_exits.csv`: real `(state, highway, exit) -> lat/lng` coordinates, not text
+     search. `import_fuel_prices` then places any station whose address matches one of those
+     triples at its actual interchange, not its city's centroid. This is what tells apart two
+     stations that share a city *and* a highway but sit at different exits miles apart — a
+     plain city join can't, since it has nothing but `(CITY, STATE)` to key on.
+   - **City centroid**, for everything else. A US city gazetteer
+     ([`kelvins/US-Cities-Database`](https://github.com/kelvins/US-Cities-Database), MIT, vendored
+     in `data/us_cities.csv`) is joined against each station's `(CITY, STATE)`. Of the CSV's 3,808
+     unique US city/state pairs (620 non-US rows are dropped), the gazetteer alone covers **3,802
+     (99.8%)** with zero network calls; the remaining 6 are committed as
+     `data/geocode_overrides.json`, resolved once via Nominatim during development.
+
+   **Duplicate rows, merged.** The source CSV isn't one row per truckstop: 568 `opis_id`s repeat,
+   almost always with a different price quote for the exact same station (same address, same
+   city/state, same geocode — verified across every repeating id in the shipped data) and
+   sometimes a slightly different name string (`"PILOT TRAVEL CENTER #1243"` vs
+   `"PILOT #1243"`). Left alone, that only *happened* to work out downstream — two rows at
+   identical coordinates always land on the same route mile marker, and the optimizer's
+   cheapest-price-per-mile-marker rule silently picked the better of the two — but it relied on
+   an accident (both rows resolving to the same coordinate) rather than a guarantee, and it left
+   duplicate rows sitting in the database itself. `import_fuel_prices` now merges rows sharing an
+   `opis_id` at import time, keeping the cheapest listed price for each truckstop, so the
+   guarantee holds even if a future data update ever put two same-`opis_id` rows at different
+   coordinates.
+
+   Net result: **6,626** US stations imported (905 duplicate rows merged out of 7,531 raw US
+   rows), 0 unresolved, **2,890 (43.6%) at a real exit interchange** rather than a city centroid.
+   `import_fuel_prices` itself still runs fully offline in a couple of seconds, every time — it's
+   `fetch_highway_exits` that makes the one-time network pass, and only to build the committed
+   `data/highway_exits.csv`, which ships in the repo so a fresh checkout never has to re-run it.
+
+   **Honest limitation:** every station still resolves to *some* precision tier, never a guess,
+   but coverage of the exit tier isn't uniform. Interstate and US-numbered highways are tagged in
+   OpenStreetMap with a standardized `ref` (`"I 44"`), so they resolve reliably; state routes
+   (SR/SH/ST) are tagged inconsistently across states and mostly fall through to the city tier —
+   of the 462 `(state, highway)` pairs the CSV references, all 462 have now been queried against
+   Overpass (`--resume`, run to completion), and 354 resolved to real exit data; the other 108
+   came back genuinely empty from OSM (mostly SR/SH/ST refs with no matching `ref` tag in that
+   state), not a lookup failure. A station that falls back to its city centroid is exactly as
+   precise as before — off by up to a few miles — which is what the highway cross-check below
+   still exists for.
 
 2. **A highway cross-check, at zero extra API cost.** City-centroid geocoding produces false
    positives — a station in a city the route happens to clip, sitting on a different highway
-   entirely. ~93% of the supplied addresses embed a highway ref (`"I-44, EXIT 283 & US-69"`),
+   entirely. ~98% of the supplied addresses embed a highway ref (`"I-44, EXIT 283 & US-69"`),
    and OSRM already returns every highway the route drives in the *same single call* that
    returns the route geometry (`steps=true`). Candidates whose parsed highway isn't one the
    route drives get held to a much tighter corridor — narrowed, never hard-filtered, since not
-   every address has a parseable ref.
+   every address has a parseable ref. Every fuel stop in the API response reports its own
+   `geocode_precision` (`"exit"` or `"city"`), so this isn't just claimed in aggregate here —
+   it's checkable per station in every response.
 
 3. **A pure-Python spatial index**, not a spatial database. The route polyline is resampled to
    ~1mi spacing and hashed into a 0.25°-cell grid; each of the ~7,500 stations probes its own
@@ -179,6 +218,20 @@ uv run manage.py import_fuel_prices   # offline; ~7,500 stations, a couple of se
 uv run manage.py runserver
 ```
 
+`data/highway_exits.csv` (the exit-interchange tier) ships committed, so the above is all a
+fresh checkout needs. Regenerating it — e.g. after `fuel-prices.csv` changes, or to pick up new
+OSM data — is a separate, one-time, rate-limited step, not part of the normal setup path:
+
+```
+uv run manage.py fetch_highway_exits --resume   # offline-output, hits the public Overpass API
+uv run manage.py import_fuel_prices             # re-run to pick up the refreshed exit coordinates
+```
+
+Runtime is genuinely variable — anywhere from ~15 minutes to over an hour — since it depends on
+how loaded the shared public Overpass instance is at the time, not on anything this codebase
+controls. `--resume` (safe to pass every time) means a run interrupted by that load can always be
+continued rather than restarted from combo 1.
+
 Then either `POST http://localhost:8000/api/v1/route/` (see `docs/postman_collection.json`) or
 open `http://localhost:8000/map/?start=New+York,+NY&finish=Los+Angeles,+CA`.
 
@@ -193,10 +246,12 @@ becomes a problem.
 uv run manage.py test
 ```
 
-30 tests, ~13s: the optimizer's property test against the reference DP, the spatial index and
+47 tests, ~13s: the optimizer's property test against the reference DP, the spatial index and
 corridor search (including a regression test for a real performance bug — see
-`fuelroute/tests/test_geo.py`), and the full API contract with geocoding/routing mocked so the
-suite makes zero network calls.
+`fuelroute/tests/test_geo.py`), the highway/exit address parsing, the import command's
+geocoding-tier selection and duplicate-`opis_id` merging against synthetic fixtures, and the
+full API contract with geocoding/routing mocked — the suite makes zero network calls, including
+to Overpass.
 
 ## Repository layout
 
@@ -214,11 +269,13 @@ fuelroute/                # manage.py startapp fuelroute
 │   ├── optimizer.py        # the cost-minimal greedy planner
 │   ├── stations.py         # in-process station snapshot
 │   └── trip.py             # orchestrates the full pipeline
-├── management/commands/import_fuel_prices.py
+├── management/commands/
+│   ├── import_fuel_prices.py   # offline import; exit tier then city-centroid tier
+│   └── fetch_highway_exits.py  # one-time Overpass pull that builds the exit tier's data
 ├── templates/fuelroute/map.html
 ├── static/fuelroute/leaflet/   # vendored, CDN-free
 └── tests/
-data/                     # supplied CSV + vendored gazetteer + the 6 manual overrides
+data/  # supplied CSV + vendored gazetteer + 6 manual overrides + committed highway_exits.csv
 docs/                      # Postman collection, Loom demo script
 ```
 

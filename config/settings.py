@@ -176,6 +176,14 @@ NOMINATIM_USER_AGENT = os.environ.get(
 )
 NOMINATIM_TIMEOUT_SECONDS = float(os.environ.get('NOMINATIM_TIMEOUT_SECONDS', '10'))
 
+# Overpass (OSM) API — used only offline, by fetch_highway_exits, to build
+# data/highway_exits.csv. Never called at request time.
+OVERPASS_BASE_URL = os.environ.get('OVERPASS_BASE_URL', 'https://overpass-api.de/api/interpreter')
+OVERPASS_USER_AGENT = os.environ.get(
+    'OVERPASS_USER_AGENT', 'fuel-route-api (assessment project)'
+)
+OVERPASS_TIMEOUT_SECONDS = float(os.environ.get('OVERPASS_TIMEOUT_SECONDS', '90'))
+
 VEHICLE_MAX_RANGE_MILES = float(os.environ.get('VEHICLE_MAX_RANGE_MILES', '500'))
 VEHICLE_MPG = float(os.environ.get('VEHICLE_MPG', '10'))
 

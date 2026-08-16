@@ -146,6 +146,16 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
     'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser'],
+    # The API has no concept of a logged-in user -- no view reads
+    # request.user or checks a permission. Leaving DRF's own default
+    # (SessionAuthentication) in place meant a POST to /api/v1/route/
+    # would 403 with "CSRF Failed: CSRF token missing" whenever the
+    # browser happened to be carrying a Django admin session cookie,
+    # since SessionAuthentication enforces CSRF for any authenticated
+    # session and /map/'s fetch() never sends that header. Turning
+    # authentication off entirely removes the dependency on unrelated
+    # browser session state rather than papering over it in the JS.
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
 }
 
 SPECTACULAR_SETTINGS = {
